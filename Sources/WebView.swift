@@ -7,17 +7,19 @@ struct WebView: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let webView = WKWebView()
         
-        // 1. Disable Scrolling and Bouncing
+        // 1. Expand to fill the screen and prevent weird padding
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
+        
+        // 2. Disable Scrolling and Bouncing
         webView.scrollView.isScrollEnabled = false
         webView.scrollView.bounces = false
         
-        // 2. Disable Pinch-to-Zoom
+        // 3. Disable Pinch-to-Zoom
         webView.scrollView.pinchGestureRecognizer?.isEnabled = false
         webView.scrollView.zoomScale = 1.0
         webView.scrollView.minimumZoomScale = 1.0
         webView.scrollView.maximumZoomScale = 1.0
         
-        // 3. Prevent text selection (optional, good for games)
         webView.isUserInteractionEnabled = true
         webView.configuration.preferences.javaScriptEnabled = true
         
@@ -34,7 +36,6 @@ struct WebView: UIViewRepresentable {
     }
     
     class Coordinator: NSObject, WKNavigationDelegate {
-        // 4. Inject JavaScript to stop double-tap zoom
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             let js = """
             document.addEventListener('touchmove', function (event) {
