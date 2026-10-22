@@ -1,55 +1,46 @@
-import SwiftUI
-import WebKit
+console.log("🕵️ Canvas Extractor Loaded. Click Play!");
 
-struct WebView: UIViewRepresentable {
-    let url: URL
-    
-    func makeUIView(context: Context) -> WKWebView {
-        let webView = WKWebView()
-        
-        // 1. Expand to fill the screen and prevent weird padding
-        webView.scrollView.contentInsetAdjustmentBehavior = .never
-        
-        // 2. Disable Scrolling and Bouncing
-        webView.scrollView.isScrollEnabled = false
-        webView.scrollView.bounces = false
-        
-        // 3. Disable Pinch-to-Zoom
-        webView.scrollView.pinchGestureRecognizer?.isEnabled = false
-        webView.scrollView.zoomScale = 1.0
-        webView.scrollView.minimumZoomScale = 1.0
-        webView.scrollView.maximumZoomScale = 1.0
-        
-        webView.isUserInteractionEnabled = true
-        webView.configuration.preferences.javaScriptEnabled = true
-        
-        webView.navigationDelegate = context.coordinator
-        webView.load(URLRequest(url: url))
-        
-        return webView
+window.flyEnabled = false;
+window.toggleFly = function(state) {
+    window.flyEnabled = state;
+    console.log("Fly Hack:", state ? "ON" : "OFF");
+};
+
+let gameScene = null;
+
+let scanInterval = setInterval(() => {
+    if (gameScene) return;
+
+    const canvas = document.getElementById('viewport');
+    if (!canvas) return;
+
+    // Babylon.js attaches the engine to the canvas. 
+    // We scan the canvas properties to find the engine.
+    for (let key in canvas) {
+        try {
+            const obj = canvas[key];
+            // The Babylon Engine object usually has a 'scenes' array
+            if (obj && obj.scenes && Array.isArray(obj.scenes) && obj.scenes.length > 0) {
+                gameScene = obj.scenes[0];
+                console.log("✅ SUCCESS! Found Babylon Scene inside the Canvas!");
+                break;
+            }
+        } catch(e) {}
     }
-    
-    func updateUIView(_ uiView: WKWebView, context: Context) {}
-    
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
+
+    if (gameScene) {
+        clearInterval(scanInterval);
+        
+        // Hijack the render loop
+        const originalRender = gameScene.render;
+        gameScene.render = function() {
+            if (window.flyEnabled && gameScene.activeCamera) {
+                // Move the camera up smoothly
+                gameScene.activeCamera.position.y += 0.5;
+            }
+            return originalRender.apply(this, arguments);
+        };
+        
+        console.log("🚀 Fly hack is ready! Type window.toggleFly(true) to fly.");
     }
-    
-    class Coordinator: NSObject, WKNavigationDelegate {
-        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            let js = """
-            document.addEventListener('touchmove', function (event) {
-                if (event.scale !== 1) { event.preventDefault(); }
-            }, { passive: false });
-            
-            var lastTouchEnd = 0;
-            document.addEventListener('touchend', function (event) {
-                var now = (new Date()).getTime();
-                if (now - lastTouchEnd <= 300) { event.preventDefault(); }
-                lastTouchEnd = now;
-            }, false);
-            """
-            webView.evaluateJavaScript(js, completionHandler: nil)
-        }
-    }
-}
+}, 2000);
