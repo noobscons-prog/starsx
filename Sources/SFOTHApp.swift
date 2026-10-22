@@ -6,7 +6,7 @@ struct SFOTHApp: App {
         WindowGroup {
             ContentView()
                 .statusBarHidden(true)
-                .edgesIgnoringSafeArea(.all)
+                .ignoresSafeArea(.all) // Forces full screen
         }
     }
 }
@@ -15,21 +15,17 @@ struct ContentView: View {
     @StateObject private var webModel = WebViewModel()
     @State private var isHackActive = false
     
-    // 1. The saved position of the button
     @State private var position = CGPoint(x: 320, y: 120)
-    
-    // 2. The LIVE drag offset (resets to 0 automatically when you lift your finger)
     @GestureState private var dragOffset = CGSize.zero
     
     var body: some View {
         ZStack {
-            // The Game WebView
+            // Force the WebView to stretch to the absolute edges
             WebView(model: webModel)
-                .edgesIgnoringSafeArea(.all)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea(.all)
             
-            // The Draggable Floating Button
             Button(action: {
-                // Only toggle if it wasn't a drag
                 if dragOffset == .zero {
                     isHackActive.toggle()
                     webModel.toggleHack(isHackActive)
@@ -46,17 +42,13 @@ struct ContentView: View {
                             .stroke(Color.white, lineWidth: 2)
                     )
             }
-            // Apply the saved position + the live offset
             .position(x: position.x + dragOffset.width, y: position.y + dragOffset.height)
-            
             .gesture(
-                DragGesture(minimumDistance: 0) // 0 makes it instantly responsive
+                DragGesture(minimumDistance: 0)
                     .updating($dragOffset) { value, state, _ in
-                        // This updates 60-120 times a second for perfectly smooth dragging
                         state = value.translation
                     }
                     .onEnded { value in
-                        // Save the final resting place when you let go
                         position.x += value.translation.width
                         position.y += value.translation.height
                     }
