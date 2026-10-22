@@ -15,14 +15,13 @@ struct ContentView: View {
     @StateObject private var webModel = WebViewModel()
     @State private var isHackActive = false
     
-    // State variables for dragging
+    // State variables for dragging the button
     @State private var dragAmount = CGSize.zero
-    // Initial position (top right area)
     @State private var position = CGSize(width: 300, height: -350) 
     
     var body: some View {
         ZStack {
-            // The Game
+            // The Game WebView
             WebView(model: webModel)
                 .edgesIgnoringSafeArea(.all)
             
