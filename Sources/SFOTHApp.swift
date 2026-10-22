@@ -15,9 +15,11 @@ struct ContentView: View {
     @StateObject private var webModel = WebViewModel()
     @State private var isHackActive = false
     
-    // State variables for dragging the button
-    @State private var dragAmount = CGSize.zero
-    @State private var position = CGSize(width: 300, height: -350) 
+    // 1. The saved position of the button
+    @State private var position = CGPoint(x: 320, y: 120)
+    
+    // 2. The LIVE drag offset (resets to 0 automatically when you lift your finger)
+    @GestureState private var dragOffset = CGSize.zero
     
     var body: some View {
         ZStack {
@@ -27,8 +29,11 @@ struct ContentView: View {
             
             // The Draggable Floating Button
             Button(action: {
-                isHackActive.toggle()
-                webModel.toggleHack(isHackActive)
+                // Only toggle if it wasn't a drag
+                if dragOffset == .zero {
+                    isHackActive.toggle()
+                    webModel.toggleHack(isHackActive)
+                }
             }) {
                 Text(isHackActive ? "Bounce: ON" : "Bounce: OFF")
                     .font(.headline)
@@ -41,19 +46,19 @@ struct ContentView: View {
                             .stroke(Color.white, lineWidth: 2)
                     )
             }
-            // Apply the drag offset
-            .offset(x: position.width + dragAmount.width, y: position.height + dragAmount.height)
-            // Add the drag gesture
+            // Apply the saved position + the live offset
+            .position(x: position.x + dragOffset.width, y: position.y + dragOffset.height)
+            
             .gesture(
-                DragGesture(minimumDistance: 10) // 10 points prevents accidental drags when tapping
-                    .onChanged { value in
-                        dragAmount = value.translation
+                DragGesture(minimumDistance: 0) // 0 makes it instantly responsive
+                    .updating($dragOffset) { value, state, _ in
+                        // This updates 60-120 times a second for perfectly smooth dragging
+                        state = value.translation
                     }
                     .onEnded { value in
-                        // Save the new position when the drag ends
-                        position.width += dragAmount.width
-                        position.height += dragAmount.height
-                        dragAmount = .zero
+                        // Save the final resting place when you let go
+                        position.x += value.translation.width
+                        position.y += value.translation.height
                     }
             )
         }
