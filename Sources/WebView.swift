@@ -1,8 +1,26 @@
 import SwiftUI
 import WebKit
 
+// 1. Custom WebView that physically blocks zooming
+class NoZoomWebView: WKWebView, UIScrollViewDelegate {
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        self.scrollView.delegate = self
+        self.scrollView.isScrollEnabled = false
+        self.scrollView.bounces = false
+        self.scrollView.bouncesZoom = false
+        self.scrollView.pinchGestureRecognizer?.isEnabled = false
+        self.scrollView.panGestureRecognizer.isEnabled = false
+    }
+    
+    // This is the magic function that stops iOS from zooming
+    func viewForZooming(in scrollView: UIScrollView) -> UIView? {
+        return nil
+    }
+}
+
 class WebViewModel: ObservableObject {
-    var webView: WKWebView
+    var webView: NoZoomWebView
     
     init() {
         let config = WKWebViewConfiguration()
@@ -35,46 +53,46 @@ class WebViewModel: ObservableObject {
         };
         """#
         
-        // 2. The Anti-Zoom Script
+        // 2. The Aggressive Anti-Zoom Script (Capture Phase)
         let antiZoomScript = #"""
-        // Force viewport meta tag to disallow zooming
-        let meta = document.querySelector('meta[name="viewport"]');
-        if (meta) {
-            meta.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
-        } else {
-            meta = document.createElement('meta');
-            meta.name = "viewport";
-            meta.content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover";
-            document.head.appendChild(meta);
-        }
-
-        // Prevent double-tap zoom
-        let lastTouchEnd = 0;
-        document.addEventListener('touchend', function(event) {
-            let now = (new Date()).getTime();
-            if (now - lastTouchEnd <= 300) { event.preventDefault(); }
-            lastTouchEnd = now;
-        }, false);
-
-        // Prevent pinch-to-zoom
-        document.addEventListener('gesturestart', function(event) { event.preventDefault(); });
-        document.addEventListener('touchmove', function(event) {
-            if (event.scale !== 1) { event.preventDefault(); }
-        }, { passive: false });
-        
-        // Prevent scroll bounce, text selection, and pull-to-refresh
         document.addEventListener('DOMContentLoaded', function() {
+            // Inject CSS
             let style = document.createElement('style');
             style.innerHTML = `
-                html, body {
-                    overflow: hidden !important;
-                    overscroll-behavior: none !important;
-                    touch-action: none !important;
+                * {
+                    touch-action: pan-x pan-y !important; /* Blocks pinch */
                     -webkit-user-select: none !important;
                     -webkit-touch-callout: none !important;
                 }
+                html, body {
+                    overflow: hidden !important;
+                    position: fixed !important;
+                    width: 100vw !important;
+                    height: 100vh !important;
+                }
             `;
             document.head.appendChild(style);
+
+            // Intercept gestures at the CAPTURE phase (before the game sees them)
+            let opts = { passive: false, capture: true };
+            
+            // Stop pinch to zoom
+            document.addEventListener('gesturestart', function(e) { e.preventDefault(); }, opts);
+            document.addEventListener('gesturechange', function(e) { e.preventDefault(); }, opts);
+            document.addEventListener('gestureend', function(e) { e.preventDefault(); }, opts);
+            
+            // Stop multi-touch (which triggers zoom)
+            document.addEventListener('touchstart', function(e) {
+                if (e.touches.length > 1) { e.preventDefault(); }
+            }, opts);
+            
+            // Stop double tap zoom
+            let lastTouchEnd = 0;
+            document.addEventListener('touchend', function(e) {
+                let now = (new Date()).getTime();
+                if (now - lastTouchEnd <= 300) { e.preventDefault(); }
+                lastTouchEnd = now;
+            }, opts);
         });
         """#
         
@@ -84,12 +102,8 @@ class WebViewModel: ObservableObject {
         config.userContentController.addUserScript(cheatUserScript)
         config.userContentController.addUserScript(antiZoomUserScript)
         
-        webView = WKWebView(frame: .zero, configuration: config)
-        
-        // Native Swift settings to stop zoom/scroll
-        webView.scrollView.isScrollEnabled = false
-        webView.scrollView.bounces = false
-        webView.scrollView.pinchGestureRecognizer?.isEnabled = false
+        // Use our custom NoZoomWebView
+        webView = NoZoomWebView(frame: .zero, configuration: config)
         
         if let url = URL(string: "https://shedletsky.com/SFOTH/") {
             webView.load(URLRequest(url: url))
