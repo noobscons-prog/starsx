@@ -6,7 +6,7 @@ struct SFOTHApp: App {
         WindowGroup {
             ContentView()
                 .statusBarHidden(true)
-                .ignoresSafeArea(.all) // Forces full screen
+                .ignoresSafeArea(.all)
         }
     }
 }
@@ -20,7 +20,6 @@ struct ContentView: View {
     
     var body: some View {
         ZStack {
-            // Force the WebView to stretch to the absolute edges
             WebView(model: webModel)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .ignoresSafeArea(.all)
